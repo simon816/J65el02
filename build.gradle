@@ -1,0 +1,13 @@
+apply plugin: 'java'
+apply plugin: 'eclipse'
+
+sourceCompatibility = "1.8"
+targetCompatibility = "1.8"
+
+version = "1.0.0"
+
+group = "com.simon816.j65el02"
+
+archivesBaseName = "J65el02"
+
+compileJava.options.encoding = 'UTF-8'
