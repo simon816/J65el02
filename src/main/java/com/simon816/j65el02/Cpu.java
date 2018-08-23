@@ -1185,7 +1185,7 @@ public class Cpu implements InstructionTable {
         clearIrq();
     }
 
-    // TODO possibly support interrupts?
+    // TODO possibly support ISR?
     private void handleIrq(int returnPc) {
 //        handleInterrupt(returnPc, IRQ_VECTOR_L, IRQ_VECTOR_H, false);
         clearIrq();

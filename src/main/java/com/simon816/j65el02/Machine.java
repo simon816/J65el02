@@ -122,6 +122,10 @@ public class Machine implements Runnable {
         }
     }
 
+    public boolean isRunning() {
+        return this.isRunning;
+    }
+
     @Override
     public void run() {
         this.isRunning = true;
@@ -148,6 +152,8 @@ public class Machine implements Runnable {
 
     /**
      * Perform a single step of the simulated system.
+     *
+     * If waiting for an interrupt, this blocks until {@link #signal} is called.
      */
     public void step() {
         this.interruptWait.acquireUninterruptibly();
@@ -165,4 +171,5 @@ public class Machine implements Runnable {
             this.interruptWait.release();
         }
     }
+
 }
