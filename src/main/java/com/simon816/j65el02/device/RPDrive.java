@@ -19,13 +19,7 @@
 
 package com.simon816.j65el02.device;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.SeekableByteChannel;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 
 import com.simon816.j65el02.Machine;
 import com.simon816.j65el02.device.RedBus.Peripheral;
@@ -40,43 +34,32 @@ import com.simon816.j65el02.device.RedBus.Peripheral;
  */
 public class RPDrive implements Peripheral {
 
+    private static final int SECTOR_SIZE = 0x80;
+
+    private final Machine machine;
+    private final DiskDriver driver;
+    private final byte[] diskName = new byte[SECTOR_SIZE];
+    private final byte[] diskSerial = new byte[SECTOR_SIZE];
+    private final ByteBuffer buffer;
+
     private int sector;
     private int command;
-    private SeekableByteChannel channel;
-    private ByteBuffer buffer;
-    private final byte[] diskName = new byte[0x80];
-    private final byte[] diskSerial = new byte[0x80];
-    private Machine machine;
 
     /**
-     * Constructs a drive backed by a real file. The file is opened for reading and writing until
-     * {@link #close} is called.
+     * Constructs a disk drive. The drive calls methods on the {@link DiskDriver} to read and write
+     * data.
      *
      * @param machine The machine the drive is attached to
-     * @param file Path to the file backing this disk
-     * @param driveName Name of the drive presented to the program
-     * @param serial Serial number of the drive
-     * @throws IOException If the file cannot be opened
+     * @param driver The driver
      */
-    public RPDrive(Machine machine, Path file, String driveName, byte[] serial) throws IOException {
+    public RPDrive(Machine machine, DiskDriver driver) {
         this.machine = machine;
-        this.channel = Files.newByteChannel(file, StandardOpenOption.READ, StandardOpenOption.WRITE);
-        this.buffer = ByteBuffer.allocateDirect(0x80);
-        byte[] name = driveName.getBytes(StandardCharsets.UTF_8);
+        this.driver = driver;
+        this.buffer = ByteBuffer.allocateDirect(SECTOR_SIZE);
+        byte[] name = driver.getDriveName();
+        byte[] serial = driver.getDriveSerial();
         System.arraycopy(name, 0, this.diskName, 0, name.length);
         System.arraycopy(serial, 0, this.diskSerial, 0, serial.length);
-    }
-
-    /**
-     * Closes the underlying open file for this drive.
-     *
-     * This should be called after the machine has been terminated. Using the drive after closing is
-     * undefined.
-     *
-     * @throws IOException If an error occurs when closing
-     */
-    public void close() throws IOException {
-        this.channel.close();
     }
 
     @Override
@@ -127,7 +110,9 @@ public class RPDrive implements Peripheral {
                     this.command = 0;
                     break;
                 case 0x02: // Write Disk Name
+                    this.buffer.position(0);
                     this.buffer.get(this.diskName);
+                    this.driver.writeDiskName(this.diskName);
                     this.command = 0;
                     break;
                 case 0x03: // Read Disk Serial
@@ -140,27 +125,23 @@ public class RPDrive implements Peripheral {
                         this.command = 0xff;
                         break;
                     }
-                    this.channel.position(this.sector << 7);
+                    this.driver.seek(this.sector << 7);
                     this.buffer.position(0);
-                    if (this.channel.read(this.buffer) != this.buffer.capacity()) {
-                        this.command = 0xff;
-                    } else {
-                        this.command = 0;
-                    }
+                    this.driver.read(this.buffer);
+                    this.command = 0;
                     break;
                 case 0x05: // Write Disk Sector
                     if (this.sector >= 0x800) {
                         this.command = 0xff;
                         break;
                     }
-                    this.channel.position(this.sector << 7);
+                    this.driver.seek(this.sector << 7);
                     this.buffer.position(0);
-                    this.channel.write(this.buffer);
+                    this.driver.write(this.buffer);
                     this.command = 0;
                     break;
             }
         } catch (Exception e) {
-            e.printStackTrace();
             this.command = 0xff;
         }
     }
